@@ -38,12 +38,14 @@ def has_control_file():
     return os.path.isfile(CONTROL_FILE)
 
 
+# --split parts-frames:0-1000,2000-2050
 # --split parts:00:01:20-00:02:45,00:05:50-00:10:30
-def mkvsplit(input_file, output_file, cut_from, cut_to):
+def mkvsplit(input_file, output_file, cut_from, cut_to, parts_timecodes=False):
+    parts = "parts-frames" if not parts_timecodes else "parts"
     _run(
         MKVMERGE_EXEC,
         "--output", output_file,
-        "--split", "parts:{}-{}".format(cut_from, cut_to),
+        "--split", "{}:{}-{}".format(parts, cut_from, cut_to),
         input_file
     )
 
@@ -87,7 +89,22 @@ def target_and_cuts_from_control_file():
     return result.items()
 
 
+def usage():
+    print("""{} [--no-merge] [--parts-timecodes]
+
+    --no-merge        \tskip the merge step and don't delete parts
+    --parts-timecodes \tcut_form, cut_to are passed as timecodes "[HH:]MM:SS[.sss]"
+    """.format(sys.argv[0]))
+    sys.exit(0)
+
+
 def main():
+    no_merge = "--no-merge" in sys.argv
+    parts_timecodes = "--parts-timecodes" in sys.argv
+
+    if "-h" in sys.argv or "--help" in sys.argv:
+        usage()
+
     if not has_exec(MKVMERGE_EXEC):
         _fail("""{} not found
 download latest release mkvtoolnix and put it on your PATH
@@ -109,11 +126,12 @@ input.mkv,b.mkv ,00:20:00.0,00:21:00.0
             if not os.path.isfile(source):
                 _fail("source {} not found".format(source))
             subtarget = "{}-{}.mkv".format(target[:-4], index + 1)
-            mkvsplit(source, subtarget, cut_from, cut_to)
+            mkvsplit(source, subtarget, cut_from, cut_to, parts_timecodes)
             subtargets.append(subtarget)
-        mkvmerge(target, *subtargets)
-        for subtarget in subtargets:
-            os.remove(subtarget)
+        if not no_merge:
+            mkvmerge(target, *subtargets)
+            for subtarget in subtargets:
+                os.remove(subtarget)
 
 
 if __name__ == "__main__":
