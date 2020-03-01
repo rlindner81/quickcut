@@ -58,13 +58,28 @@ def mkvmerge(output_file, *files):
     )
 
 
+def _strip_and_clamp(row, target_len):
+    if len(row) < target_len:
+        return None
+    values = []
+    for value in row[:target_len]:
+        new_value = value.strip()
+        if new_value == "":
+            return None
+        values.append(new_value)
+    return values
+
+
 def target_and_cuts_from_control_file():
     result = OrderedDict()
     with open(CONTROL_FILE) as fin:
         reader = csv.reader(fin)
         next(reader, None)
         for row in reader:
-            (source, target, cut_from, cut_to) = (value.strip() for value in row)
+            values = _strip_and_clamp(row, 4)
+            if not values:
+                continue
+            (source, target, cut_from, cut_to) = values
             if target in result:
                 result[target].append((source, cut_from, cut_to))
             else:
