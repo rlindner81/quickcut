@@ -5,7 +5,7 @@ import csv
 
 from collections import OrderedDict
 
-FFMPEG_EXEC = "ffmpeg"
+MKVMERGE_EXEC = "mkvmerge"
 CONTROL_FILE = "quickcut.csv"
 
 
@@ -26,9 +26,9 @@ def _quote(message):
     return "\"" + message + "\""
 
 
-def has_ffmpeg():
+def has_exec(file):
     try:
-        subprocess.run(FFMPEG_EXEC, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run(file, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     except FileNotFoundError:
         return False
     return True
@@ -38,26 +38,23 @@ def has_control_file():
     return os.path.isfile(CONTROL_FILE)
 
 
-def ffmpeg_cut(input_file, output_file, start_at, end_at):
+# --split parts:00:01:20-00:02:45,00:05:50-00:10:30
+def mkvsplit(input_file, output_file, cut_from, cut_to):
     _run(
-        FFMPEG_EXEC,
-        "-y",  # OVERWRITE
-        "-noaccurate_seek",
-        "-ss", _quote(start_at),
-        "-i", _quote(input_file),
-        "-to", _quote(end_at),
-        "-c", "copy",
-        _quote(output_file)
+        MKVMERGE_EXEC,
+        "--output", output_file,
+        "--split", "parts:{}-{}".format(cut_from, cut_to),
+        input_file
     )
 
 
-def ffmpeg_concat(output_file, *subtargets):
+# mkvmerge -o full.mkv file1.mkv +file2.mkv
+def mkvmerge(output_file, *files):
+    append_files = " +".join(files).split()
     _run(
-        FFMPEG_EXEC,
-        "-y",  # OVERWRITE
-        "-i", _quote("concat:" + "|".join(subtargets)),
-        "-c", "copy",
-        _quote(output_file)
+        MKVMERGE_EXEC,
+        "--output", output_file,
+        *append_files
     )
 
 
@@ -76,20 +73,19 @@ def target_and_cuts_from_control_file():
 
 
 def main():
-    if not has_ffmpeg():
+    if not has_exec(MKVMERGE_EXEC):
         _fail("""{} not found
-download latest ffmpeg release build with static linking and put it on your PATH
-https://ffmpeg.zeranoe.com/builds/""".format(FFMPEG_EXEC))
+download latest release mkvtoolnix and put it on your PATH
+https://www.fosshub.com/MKVToolNix.html""".format(MKVMERGE_EXEC))
 
     if not has_control_file():
         _fail("""control file {control_file} not found
 create a new control file {control_file} with a content similar to:
-source,target,cut_from,cut_to
-2019-11-02 16-42-01.mkv,a.mkv,00:00:20.00000,00:00:40.00000
-2019-11-02 16-42-01.mkv,a.mkv,00:00:30.00000,00:00:50.00000
-2019-11-02 16-42-01-part2.mkv,a.mkv,00:00:00.00000,00:01:00.00000
-2019-11-02 16-42-01.mkv,b.mkv,00:00:20.00000,00:00:40.00000
-2019-11-02 16-42-01.mkv,b.mkv,00:00:20.00000,00:00:40.00000
+source   ,target,cut_from  ,cut_to
+input.mkv,a.mkv ,00:01:00.0,00:02:00.0
+input.mkv,a.mkv ,00:10:00.0,00:11:00.0
+a.mkv    ,b.mkv ,00:01:00.0,00:02:00.0
+input.mkv,b.mkv ,00:20:00.0,00:21:00.0
 """.format_map({"control_file": CONTROL_FILE}))
 
     for target, cuts in target_and_cuts_from_control_file():
@@ -98,9 +94,9 @@ source,target,cut_from,cut_to
             if not os.path.isfile(source):
                 _fail("source {} not found".format(source))
             subtarget = "{}-{}.mkv".format(target[:-4], index + 1)
-            ffmpeg_cut(source, subtarget, cut_from, cut_to)
+            mkvsplit(source, subtarget, cut_from, cut_to)
             subtargets.append(subtarget)
-        ffmpeg_concat(target, *subtargets)
+        mkvmerge(target, *subtargets)
         for subtarget in subtargets:
             os.remove(subtarget)
 
