@@ -74,6 +74,7 @@ def _strip_and_clamp(row, target_len):
 
 def target_and_cuts_from_control_file():
     result = OrderedDict()
+    last_target = None
     with open(CONTROL_FILE) as fin:
         reader = csv.reader(fin)
         next(reader, None)
@@ -82,11 +83,12 @@ def target_and_cuts_from_control_file():
             if not values:
                 continue
             (source, target, cut_from, cut_to) = values
+            last_target = target
             if target in result:
                 result[target].append((source, cut_from, cut_to))
             else:
                 result[target] = [(source, cut_from, cut_to)]
-    return result.items()
+    return result.items(), last_target
 
 
 def usage():
@@ -100,6 +102,7 @@ def usage():
 
 def main():
     no_merge = "--no-merge" in sys.argv
+    no_skip = "--no-skip" in sys.argv
     parts_timecodes = "--parts-timecodes" in sys.argv
 
     if "-h" in sys.argv or "--help" in sys.argv:
@@ -120,7 +123,11 @@ a.mkv    ,b.mkv ,00:01:00.0,00:02:00.0
 input.mkv,b.mkv ,00:20:00.0,00:21:00.0
 """.format_map({"control_file": CONTROL_FILE}))
 
-    for target, cuts in target_and_cuts_from_control_file():
+    items, last_target = target_and_cuts_from_control_file()
+    for target, cuts in items:
+        if not no_skip and target != last_target:
+            print ("skipping {}".format(target))
+            continue
         subtargets = []
         for index, (source, cut_from, cut_to) in enumerate(cuts):
             if not os.path.isfile(source):
