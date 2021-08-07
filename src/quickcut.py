@@ -1,5 +1,6 @@
 import sys
 import os
+import os.path
 import subprocess
 import csv
 
@@ -125,8 +126,8 @@ input.mkv,b.mkv ,00:20:00.0,00:21:00.0
 
     items, last_target = target_and_cuts_from_control_file()
     for target, cuts in items:
-        if not no_skip and target != last_target:
-            print ("skipping {}".format(target))
+        if not no_skip and target != last_target and os.path.isfile(target):
+            print("skipping {}".format(target))
             continue
         subtargets = []
         for index, (source, cut_from, cut_to) in enumerate(cuts):
