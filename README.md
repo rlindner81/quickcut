@@ -3,7 +3,8 @@
 This is a python 3 script for cutting mkv files using a "controlling" csv file `quickcut.csv`.
 
 The heavy lifting is done by MKVMerge, which is a hard dependency. It should be installed and on the path for this script to work. See
-https://www.fosshub.com/MKVToolNix.html
+- https://www.fosshub.com/MKVToolNix.html (Win)
+- https://formulae.brew.sh/formula/mkvtoolnix (Mac OS)
 
 An example control file looks like:
 ```
