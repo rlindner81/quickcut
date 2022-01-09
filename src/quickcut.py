@@ -22,6 +22,14 @@ def _run(*cmd_parts):
     if result.returncode != 0:
         _fail("non-zero return code for command {}".format(cmd))
 
+# NOTE: mkvmerge uses return code 1 for warnings, but we want to ignore those
+def _run_ignore_1(*cmd_parts):
+    cmd = " ".join(cmd_parts)
+    print("running", " ".join(cmd_parts))
+    result = subprocess.run(cmd_parts)
+    if result.returncode != 0 and result.returncode != 1:
+        _fail("non-zero return code for command {}".format(cmd))
+
 
 def _quote(message):
     return "\"" + message + "\""
@@ -54,7 +62,7 @@ def mkvsplit(input_file, output_file, cut_from, cut_to, parts_timecodes=False):
 # mkvmerge -o full.mkv file1.mkv +file2.mkv
 def mkvmerge(output_file, *files):
     append_files = " +".join(files).split()
-    _run(
+    _run_ignore_1(
         MKVMERGE_EXEC,
         "--output", output_file,
         *append_files
